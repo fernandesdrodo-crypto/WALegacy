@@ -1,52 +1,37 @@
-name: Build WALegacy Package
+name: Build WALegacy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
+    tags: ["v*"]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Code
+      - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
-      - name: Install System Dependencies
+      - name: Setup Theos
+        uses: Randomblock1/theos-action@v1
+
+      - name: Build package (rootless)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential clang git perl curl wget unzip lz4
+          make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1
+        env:
+          THEOS: ${{ github.workspace }}/theos
 
-      - name: Setup Theos Environment
-        run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-
-      - name: Download iOS SDK
-        run: |
-          curl -LO https://github.com/theos/sdks/archive/master.zip
-          unzip -q master.zip
-          mv sdks-master/* $HOME/theos/sdks/
-          rm -rf sdks-master master.zip
-
-      - name: Download Linux Toolchain for iOS
-        run: |
-          mkdir -p $HOME/theos/toolchain/linux/iphone
-          curl -L -o toolchain.tar.lz4 https://github.com/sbingner/llvm-project/releases/download/v10.0.0-1/linux-ios-arm64-clang-toolchain.tar.lz4
-          lz4 -d toolchain.tar.lz4 toolchain.tar
-          tar -xf toolchain.tar -C $HOME/theos/toolchain/linux/iphone/
-          rm toolchain.tar.lz4 toolchain.tar
-
-      - name: Build Package
-        run: |
-          make package FINALPACKAGE=1
-
-      - name: Upload Artifact (.deb)
+      - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WALegacy-Debian-Package
+          name: WALegacy-deb
           path: packages/*.deb
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.deb
