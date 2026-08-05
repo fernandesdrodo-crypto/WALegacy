@@ -16,15 +16,29 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Build Dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang git perl build-essential curl
+          sudo apt-get install -y build-essential clang git perl curl wget unzip lz4
 
-      - name: Setup Theos
+      - name: Setup Theos Environment
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Download iOS SDK
+        run: |
+          curl -LO https://github.com/theos/sdks/archive/master.zip
+          unzip -q master.zip
+          mv sdks-master/* $HOME/theos/sdks/
+          rm -rf sdks-master master.zip
+
+      - name: Download Linux Toolchain for iOS
+        run: |
+          mkdir -p $HOME/theos/toolchain/linux/iphone
+          curl -LO https://github.com/sbingner/llvm-project/releases/download/v10.0.0-1/linux-ios-arm64-clang-toolchain.tar.lz4
+          tar -I lz4 -xf linux-ios-arm64-clang-toolchain.tar.lz4 -C $HOME/theos/toolchain/linux/iphone/
+          rm linux-ios-arm64-clang-toolchain.tar.lz4
 
       - name: Build Package
         run: |
